@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Forced Hand</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#121212">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Forced Hand">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+  :root{--gold:#e9c96b;--cream:#f3ead6;--muted:#8b8b8b;--line:#3a3a3a;--pill:#222;--chrome:230px}
+  body.blitz{--chrome:268px}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;gap:8px;touch-action:manipulation;padding:max(8px,env(safe-area-inset-top)) 12px max(8px,env(safe-area-inset-bottom));color:var(--cream);font:15px/1.4 Georgia,"Times New Roman",serif;background:radial-gradient(1000px 600px at 50% -5%,#2b2b2b,#0f0f0f 70%) fixed}
+  h1{margin:0;font-size:1.4rem;font-weight:500;color:var(--cream);text-shadow:0 2px 14px #000}
+  .score{font-size:.85rem;color:var(--muted);text-align:center}
+  .controls{display:flex;flex-direction:column;align-items:center;gap:6px;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+  .row{display:flex;gap:8px;justify-content:center}
+  .controls label{display:flex;align-items:center;gap:5px;padding:6px 11px;font-size:.78rem;color:#bdbdbd;cursor:pointer;white-space:nowrap}
+  .pill{border-radius:999px;background:var(--pill);border:1px solid var(--line)}
+  .seg{display:flex;border:1px solid var(--line);border-radius:999px;background:var(--pill);overflow:hidden}
+  .controls label:has(input:checked){color:var(--gold)} .seg label:has(input:checked){background:#e9c96b24} .pill:has(input:checked){border-color:var(--gold)}
+  input[type=radio]{display:none} input[type=checkbox]{accent-color:var(--gold)}
+  .pill select{appearance:none;-webkit-appearance:none;background:transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23e9c96b' stroke-width='2'/%3E%3C/svg%3E") right center no-repeat;border:0;color:var(--gold);font:inherit;font-weight:600;padding:0 18px 0 0;cursor:pointer}
+  .pill select option{color:#222}
+  button{cursor:pointer} button:active{transform:scale(.98)}
+  button.primary{font:600 1rem Georgia,serif;color:var(--cream);padding:8px 18px;border-radius:12px;border:1px solid #86a96a;background:linear-gradient(180deg,#5f8a43,#3d5c29);box-shadow:0 6px 18px #000a,inset 0 1px 0 #ffffff40}
+  button.primary::before{content:"\21BB";margin-right:10px}
+  .board-wrap{width:max(240px,min(94vw,520px,calc(100vh - var(--chrome) - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))));width:max(240px,min(94vw,520px,calc(100dvh - var(--chrome) - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))));padding:clamp(8px,2.6vw,14px);border-radius:8px;background:linear-gradient(145deg,#7a5738,#3b2616 55%,#5a3f27);box-shadow:0 22px 46px #000c,inset 0 0 0 2px #9b7650,inset 0 0 0 5px #2a190d}
+  .board{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-template-rows:repeat(7,minmax(0,1fr));aspect-ratio:1;overflow:hidden;border-radius:2px;box-shadow:0 0 0 2px #1d1108}
+  .sq{position:relative;min-width:0;min-height:0;display:flex;align-items:center;justify-content:center;cursor:pointer}
+  .sq.dark{background:linear-gradient(135deg,#6f8b5c,#556f46)} .sq.light{background:linear-gradient(135deg,#f2e9cf,#e2d7b6)}
+  .sq.selected{box-shadow:inset 0 0 0 3px var(--gold),inset 0 0 20px #ffe08a99}
+  .coord{position:absolute;font:600 .62rem system-ui,sans-serif;color:#f0dc9a;pointer-events:none}
+  .sq.light .coord{color:#7a6a3a} .coord.row{top:3px;left:4px} .coord.col{bottom:2px;right:4px}
+  .dot{width:28%;height:28%;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff1b8,#d9a521);box-shadow:0 0 10px #ffd86b;animation:pulse 1.1s infinite alternate}
+  @keyframes pulse{to{transform:scale(.75);opacity:.7}}
+  .piece{position:absolute;inset:10%;border-radius:50%;display:flex;align-items:center;justify-content:center}
+  .piece.p1{background:radial-gradient(circle at 35% 28%,#ffe9a0,#e0ae2e 52%,#a8741a);box-shadow:0 5px 8px #0009,inset 0 0 0 3px #c99a2c,inset 0 0 0 6px #f6d97a99}
+  .piece.p2{background:radial-gradient(circle at 35% 28%,#7a7f88,#3a3d43 55%,#1b1d21);box-shadow:0 5px 8px #000b,inset 0 0 0 3px #17181b,inset 0 0 0 6px #5d626b}
+  .piece.king{inset:3%;z-index:1}
+  .piece.p1.king{box-shadow:0 6px 12px #000a,0 0 22px #ffd86bbb,inset 0 0 0 3px #c99a2c,inset 0 0 0 6px #f6d97a99}
+  .piece.p2.king{box-shadow:0 6px 12px #000a,0 0 22px #e9c96b77,inset 0 0 0 3px #17181b,inset 0 0 0 6px #e9c96b}
+  .piece.king::after{content:"";width:60%;height:60%;background:center/contain no-repeat}
+  .piece.p1.king::after{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%235b3a05' d='M2 7l5 4 5-7 5 7 5-4-2 12H4zM4 21h16v2H4z'/%3E%3C/svg%3E")} .piece.p2.king::after{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23e9c96b' d='M2 7l5 4 5-7 5 7 5-4-2 12H4zM4 21h16v2H4z'/%3E%3C/svg%3E")}
+  .piece.can-capture-hint{outline:3px solid #e0533f;outline-offset:2px;animation:glow .9s infinite alternate}
+  @keyframes glow{to{outline-color:#e0533f44}}
+  .board.turning{animation:turn .6s ease} @keyframes turn{from{transform:rotate(180deg)}}
+  .status{font-size:.85rem;line-height:1.25;height:2.5em;overflow:hidden;text-align:center;max-width:520px;display:flex;align-items:center;justify-content:center}
+  .acts{display:flex;align-items:center;gap:8px}
+  .icon{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:var(--pill);color:var(--gold);padding:0;font-size:.9rem;display:flex;align-items:center;justify-content:center} .help{position:relative}
+  .help summary{list-style:none;width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:var(--pill);display:flex;align-items:center;justify-content:center;color:var(--gold);cursor:pointer;font:600 .95rem system-ui,sans-serif}
+  .help summary::-webkit-details-marker{display:none}
+  .help .card{position:absolute;right:0;top:40px;width:min(82vw,300px);padding:12px;border-radius:12px;background:#1b1b1b;border:1px solid var(--line);box-shadow:0 12px 30px #000c;font:.78rem/1.45 system-ui,sans-serif;color:#bbb;z-index:5;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+  #score{display:none}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:12px;width:min(94vw,520px)}
+  #stats{position:relative;display:flex;justify-content:center;gap:4px;width:min(94vw,520px);padding-top:8px;border-top:1px solid #333;font:.8rem system-ui,sans-serif}
+  #stats .lv{flex:1;display:flex;justify-content:center;gap:5px;padding:4px 2px;border-radius:999px;color:#8f8f8f;white-space:nowrap}
+  #stats .lv.on{background:#e9c96b1c;color:var(--gold)} #stats .lv.on b{color:var(--gold)}
+  #statsDetail{display:grid;grid-template-columns:auto auto;gap:2px 14px;color:#bbb}
+  #stats::before{content:"\25C6";position:absolute;top:-9px;left:50%;transform:translateX(-50%);background:#101010;color:#8a7a4a;padding:0 10px;font-size:.7rem}
+  #stats b{color:var(--cream);font-weight:600} #stats .gold,#stats .gold b{color:var(--gold)}
+  #resetStatsBtn{background:none;border:0;color:#6f6f6f;font:.72rem system-ui,sans-serif;text-decoration:underline}
+  footer{font-size:.74rem;color:#777;max-width:520px;text-align:center}
+  .clocks{display:flex;gap:14px;justify-content:center}
+  .clock{font:700 1rem system-ui,sans-serif;font-variant-numeric:tabular-nums;padding:4px 14px;border-radius:999px;border:1px solid var(--line);background:var(--pill)}
+  .clock.active{border-color:var(--gold);color:var(--gold)} .clock.low{color:#ff6b5e;border-color:#ff6b5e}
+  .sq.last::before{content:"";position:absolute;inset:0;background:#f6d36540;pointer-events:none}
+  .sq.selected .piece{animation:lift .16s ease-out forwards} @keyframes lift{to{transform:scale(1.1)}}
+</style>
+</head>
+<body>
+  <header class="top"><h1>Forced Hand</h1>
+    <div class="acts">
+      <button class="icon" id="muteBtn" aria-label="Sound on or off">&#128266;</button>
+      <details class="help"><summary>?</summary><div class="card">
+        <span>Gold = Player 1 (moves first). Slate = Player 2. Crown = king. Tap a piece, then tap a highlighted square to move. Capturing is compulsory. Blitz 7: each player gets 30 seconds total &mdash; run out and you lose the round. Records are saved on this device only.</span>
+        <div id="statsDetail"></div>
+        <button id="resetStatsBtn">Reset saved stats</button>
+      </div></details>
+      <button class="primary" id="newRoundBtn">New Round</button>
+    </div>
+  </header>
+  <div class="controls">
+    <div class="row">
+      <div class="seg"><label><input type="radio" name="mode" value="hvh"> Two players</label><label><input type="radio" name="mode" value="hva" checked> vs Computer</label></div>
+      <label class="pill"><input type="checkbox" id="blitzToggle"> Blitz 7</label>
+    </div>
+    <div class="row">
+      <label class="pill"><span>Difficulty</span><select id="difficulty"><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option><option value="expert">Expert</option></select></label>
+      <label class="pill"><span>You play</span><select id="side" title="Choose your side"><option value="1">Gold (P1)</option><option value="2">Slate (P2)</option></select></label>
+    </div>
+  </div>
+  <div class="status" id="status">Loading...</div>
+  <div class="clocks" id="clocks" style="display:none;">
+    <div class="clock" id="clock1">P1 0:30</div>
+    <div class="clock" id="clock2">P2 0:30</div>
+  </div>
+  <div class="board-wrap"><div class="board" id="board"></div></div>
+  <div class="score" id="score"></div>
+  <div class="score" id="stats"></div>
+<script id="engine">
+"use strict";
+/* ---------- Engine (rules) ---------- */
+const SIZE = 7;
+function inBounds(r,c){ return r>=0 && r<SIZE && c>=0 && c<SIZE; }
+function promoteRow(player){ return player===1 ? SIZE-1 : 0; }
+function opponent(player){ return player===1 ? 2 : 1; }
+function colLetter(c){ return String.fromCharCode(65+c); }
+
+function occMap(pieces){
+  const m = {};
+  for (const pid in pieces){ const p = pieces[pid]; m[p.r+','+p.c] = pid; }
+  return m;
+}
+function clonePieces(pieces){
+  const out = {};
+  for (const pid in pieces) out[pid] = {...pieces[pid]};
+  return out;
+}
+function chainCapturesFrom(pieces, pid, r, c, occState, captured, path){
+  const player = pieces[pid].player;
+  const dirs4 = [[1,1],[1,-1],[-1,1],[-1,-1]];
+  let found = false, seqs = [];
+  for (const [dr,dc] of dirs4){
+    const mr=r+dr, mc=c+dc, lr=r+2*dr, lc=c+2*dc;
+    if (!inBounds(lr,lc)) continue;
+    const midPid = occState[mr+','+mc];
+    if (midPid===undefined || pieces[midPid].player===player) continue;
+    if (captured.includes(midPid) || occState[lr+','+lc]!==undefined) continue;
+    found = true;
+    const newOcc = {...occState};
+    delete newOcc[r+','+c];
+    newOcc[lr+','+lc] = pid;
+    seqs = seqs.concat(chainCapturesFrom(pieces, pid, lr, lc, newOcc, [...captured, midPid], [...path,[lr,lc]]));
+  }
+  if (!found) seqs.push({pid, path, captures: captured});
+  return seqs;
+}
+function openingMoves(pieces, pid, occ){
+  const p = pieces[pid];
+  const r=p.r, c=p.c, player=p.player, d = player===1?1:-1;
+  const moves = [];
+  for (const dc of [-1,1]){
+    const nr=r+d, nc=c+dc;
+    if (inBounds(nr,nc) && occ[nr+','+nc]===undefined) moves.push({pid, path:[[r,c],[nr,nc]], captures:[]});
+  }
+  for (const ds1 of [-1,1]){
+    const ir=r+d, ic=c+ds1;
+    if (!inBounds(ir,ic)) continue;
+    const midPid = occ[ir+','+ic];
+    if (midPid!==undefined && pieces[midPid].player===player) continue;
+    for (const ds2 of [-1,1]){
+      const fr=r+2*d, fc=c+ds1+ds2;
+      if (!inBounds(fr,fc) || occ[fr+','+fc]!==undefined) continue;
+      const caps = midPid!==undefined ? [midPid] : [];
+      moves.push({pid, path:[[r,c],[ir,ic],[fr,fc]], captures:caps});
+    }
+  }
+  return moves;
+}
+function normalNonCap(pieces, pid, occ){
+  const p=pieces[pid], r=p.r,c=p.c,player=p.player,d=player===1?1:-1;
+  const moves=[];
+  for (const dc of [-1,1]){
+    const nr=r+d,nc=c+dc;
+    if (inBounds(nr,nc) && occ[nr+','+nc]===undefined) moves.push({pid, path:[[r,c],[nr,nc]], captures:[]});
+  }
+  return moves;
+}
+function normalCaptures(pieces, pid, occ){
+  const p=pieces[pid];
+  return chainCapturesFrom(pieces, pid, p.r, p.c, occ, [], [[p.r,p.c]]).filter(m=>m.captures.length>0);
+}
+function kingMoves(pieces, pid, occ){
+  const p=pieces[pid], player=p.player;
+  const dirs8=[[1,1],[1,-1],[-1,1],[-1,-1],[1,0],[-1,0],[0,1],[0,-1]];
+  const noncap=[], cap=[];
+  function recurse(r,c,occState,captured,path){
+    let found=false;
+    for (const [dr,dc] of dirs8){
+      let rr=r+dr, cc=c+dc;
+      while (inBounds(rr,cc) && occState[rr+','+cc]===undefined){ rr+=dr; cc+=dc; }
+      if (!inBounds(rr,cc)) continue;
+      const occPid = occState[rr+','+cc];
+      if (occPid===undefined || pieces[occPid].player===player) continue;
+      if (captured.includes(occPid)) continue;
+      let lr=rr+dr, lc=cc+dc;
+      while (inBounds(lr,lc) && occState[lr+','+lc]===undefined){
+        found=true;
+        const newOcc={...occState};
+        delete newOcc[r+','+c];
+        newOcc[lr+','+lc]=pid;
+        recurse(lr,lc,newOcc,[...captured,occPid],[...path,[lr,lc]]);
+        lr+=dr; lc+=dc;
+      }
+    }
+    if (!found && path.length>1) cap.push({pid, path, captures: captured});
+  }
+  recurse(p.r,p.c,{...occ},[],[[p.r,p.c]]);
+  for (const [dr,dc] of dirs8){
+    let rr=p.r+dr, cc=p.c+dc;
+    while (inBounds(rr,cc) && occ[rr+','+cc]===undefined){
+      noncap.push({pid, path:[[p.r,p.c],[rr,cc]], captures:[]});
+      rr+=dr; cc+=dc;
+    }
+  }
+  return [noncap, cap];
+}
+function legalMoves(pieces, player){
+  const occ = occMap(pieces);
+  let noncap=[], cap=[];
+  for (const pid in pieces){
+    const p = pieces[pid];
+    if (p.player !== player) continue;
+    if (p.king){
+      const [nc,cp] = kingMoves(pieces, pid, occ);
+      noncap = noncap.concat(nc); cap = cap.concat(cp);
+    } else if (!p.moved){
+      for (const m of openingMoves(pieces, pid, occ)) (m.captures.length ? cap : noncap).push(m);
+    } else {
+      noncap = noncap.concat(normalNonCap(pieces, pid, occ));
+      cap = cap.concat(normalCaptures(pieces, pid, occ));
+    }
+  }
+  return cap.length ? cap : noncap;
+}
+function applyMove(pieces, move){
+  for (const cid of move.captures) delete pieces[cid];
+  const [fr,fc] = move.path[move.path.length-1];
+  const piece = pieces[move.pid];
+  piece.r=fr; piece.c=fc;
+  if (!piece.king){
+    piece.moved = true;
+    if (fr === promoteRow(piece.player)) piece.king = true;
+  }
+}
+function initialPieces(){
+  const pieces = {};
+  let pid=0;
+  for (let c=0;c<SIZE;c+=2){ pieces[pid++]={r:0,c,player:1,king:false,moved:false}; }
+  for (let c=0;c<SIZE;c+=2){ pieces[pid++]={r:SIZE-1,c,player:2,king:false,moved:false}; }
+  return pieces;
+}
+function winnerOf(pieces){
+  let p1=false, p2=false;
+  for (const pid in pieces){ if (pieces[pid].player===1) p1=true; else p2=true; }
+  if (!p1) return 2;
+  if (!p2) return 1;
+  return null;
+}
+function positionKey(pieces, current){
+  const items = Object.values(pieces).map(p=>[p.r,p.c,p.player,p.king?1:0,p.moved?1:0]);
+  items.sort((a,b)=> a[0]-b[0]||a[1]-b[1]||a[2]-b[2]||a[3]-b[3]||a[4]-b[4]);
+  return current+'|'+items.map(x=>x.join(',')).join(';');
+}
+
+/* ---------- AI ---------- */
+function evaluate(pieces){
+  let score=0;
+  for (const pid in pieces){
+    const p=pieces[pid];
+    let val = p.king ? 3 : 1;
+    if (!p.king){
+      const adv = p.player===1 ? p.r/(SIZE-1) : (SIZE-1-p.r)/(SIZE-1);
+      val += adv*0.4;
+      val += (3-Math.abs(p.c-3))*0.03;
+    }
+    score += (p.player===1 ? val : -val);
+  }
+  return score;
+}
+const DRAW_PLIES = 20, MAX_DEPTH = 12, TIMEOUT = {};
+let nodes = 0, deadline = 0;
+function childVal(pieces, m, player, depth, alpha, beta, streak){
+  const child = clonePieces(pieces); applyMove(child, m);
+  const w = winnerOf(child);
+  if (w) return w===1 ? 500+depth : -500-depth;
+  const ns = m.captures.length ? 0 : streak+1;
+  if (ns >= DRAW_PLIES) return 0;            // 20-ply no-capture draw
+  return minimax(child, opponent(player), depth-1, alpha, beta, ns);
+}
+function minimax(pieces, player, depth, alpha, beta, streak){
+  if ((++nodes & 1023) === 0 && deadline && Date.now() > deadline) throw TIMEOUT;
+  const moves = legalMoves(pieces, player);
+  if (moves.length===0) return player===1 ? -500 : 500;
+  if (depth===0) return evaluate(pieces);
+  let best = player===1 ? -1e9 : 1e9;
+  for (const m of moves){
+    const val = childVal(pieces, m, player, depth, alpha, beta, streak);
+    if (player===1){ best=Math.max(best,val); alpha=Math.max(alpha,val); }
+    else { best=Math.min(best,val); beta=Math.min(beta,val); }
+    if (alpha>=beta) break;
+  }
+  return best;
+}
+/* Always finishes `depth`. If timeMs is given, keeps searching one move deeper at a time until the
+   time is up (so endgames, with few pieces, get searched much further) and keeps the last full result. */
+function chooseMove(pieces, player, depth, blunderChance, streak=0, history=[], timeMs=0){
+  const t0 = Date.now(), prune = blunderChance === 0;   // no blunders -> only the best move matters, so prune harder
+  let order = legalMoves(pieces, player);
+  const bestFirst = arr => arr.slice().sort((x,y)=> player===1 ? y[0]-x[0] : x[0]-y[0]);
+  const scoreAt = d => {
+    let a = -1e9, b = 1e9;
+    return order.map(m=>{
+      const child = clonePieces(pieces); applyMove(child, m);
+      const key = positionKey(child, opponent(player));
+      const rep = !winnerOf(child) && history.filter(k=>k===key).length >= 2;   // 3rd occurrence = draw
+      const v = rep ? 0 : childVal(pieces, m, player, d, prune?a:-1e9, prune?b:1e9, streak);
+      if (prune){ if (player===1) a = Math.max(a, v-1e-4); else b = Math.min(b, v+1e-4); }
+      return [v, m];
+    });
+  };
+  let scored = scoreAt(depth), reached = depth;
+  if (timeMs > 0){
+    deadline = t0 + timeMs;
+    try {
+      for (let d=depth+1; d<=MAX_DEPTH && Date.now()<deadline && Math.abs(bestFirst(scored)[0][0])<500; d++){
+        order = bestFirst(scored).map(x=>x[1]);          // best move first = more pruning
+        scored = scoreAt(d); reached = d;
+      }
+    } catch (e) { if (e !== TIMEOUT) throw e; }
+    deadline = 0;
+  }
+  chooseMove.reached = reached;
+  scored = bestFirst(scored);
+  const bestVal = scored[0][0];
+  if (Math.random() < blunderChance && scored.length>1){
+    const pool = scored.slice(0, Math.min(3,scored.length));
+    return pool[Math.floor(Math.random()*pool.length)][1];
+  }
+  const ties = scored.filter(([v])=>Math.abs(v-bestVal)<1e-6).map(([,m])=>m);
+  return ties[Math.floor(Math.random()*ties.length)];
+}
+const DIFFICULTIES = {
+  easy:   {depth:1, blunder:0.25},
+  medium: {depth:3, blunder:0.12},
+  hard:   {depth:4, blunder:0.05},
+  expert: {depth:5, blunder:0.0},
+};
+
+</script>
+<script>
+"use strict";
+/* ---------- UI ---------- */
+const boardEl = document.getElementById('board');
+const statusEl = document.getElementById('status');
+const scoreEl = document.getElementById('score');
+const statsEl = document.getElementById('stats');
+const diffSelect = document.getElementById('difficulty');
+const modeRadios = document.getElementsByName('mode');
+const blitzToggle = document.getElementById('blitzToggle');
+const sideSelect = document.getElementById('side');
+const clocksEl = document.getElementById('clocks');
+const clock1El = document.getElementById('clock1');
+const clock2El = document.getElementById('clock2');
+
+let state, selectedPid = null, highlighted = {}, score = {1:0,2:0}, capturablePids = [];
+let clockTimer = null, timeLeft = {1:30000, 2:30000}, lastTick = 0, roundOver = false;
+
+const STATS_KEY = 'checkers7_stats_v1';
+const LEVELS = ['easy','medium','hard','expert'];
+const emptyStats = () => ({p1Wins:0, p2Wins:0, draws:0, gamesPlayed:0, vs:Object.fromEntries(LEVELS.map(l=>[l,{w:0,l:0,d:0}]))});
+let stats = emptyStats();
+function loadStats(){
+  try {
+    const raw = localStorage.getItem(STATS_KEY);
+    if (raw){
+      const parsed = JSON.parse(raw);
+      stats = {...emptyStats(), ...parsed};
+      stats.vs = {};
+      for (const l of LEVELS) stats.vs[l] = {w:0,l:0,d:0, ...((parsed.vs||{})[l])};
+    }
+  } catch (e) { /* storage unavailable -- just keep in-memory defaults */ }
+}
+function saveStats(){
+  try { localStorage.setItem(STATS_KEY, JSON.stringify(stats)); } catch (e) { /* ignore */ }
+}
+function pct(n, total){ return total>0 ? Math.round(n/total*100) : 0; }
+function renderStats(){
+  const names = {easy:'Easy', medium:'Medium', hard:'Hard', expert:'Expert'};
+  const tot = l => stats.vs[l].w + stats.vs[l].l + stats.vs[l].d;
+  statsEl.innerHTML = LEVELS.map(l =>
+    `<span class="lv${diffSelect.value===l?' on':''}">${names[l]} <b>${tot(l) ? pct(stats.vs[l].w, tot(l))+'%' : '—'}</b></span>`).join('');
+  const d = document.getElementById('statsDetail');
+  if (d) d.innerHTML = '<b>Your record vs the computer</b><span></span>' + LEVELS.map(l =>
+    `<span>${names[l]}</span><span>${stats.vs[l].w}W ${stats.vs[l].l}L ${stats.vs[l].d}D &middot; ${tot(l)} games</span>`).join('');
+}
+
+function currentMode(){
+  for (const r of modeRadios) if (r.checked) return r.value;
+  return 'hva';
+}
+function humanSide(){ return currentMode()==='hva' ? +sideSelect.value : 1; }
+function boardFlipped(){ return currentMode()==='hva' && humanSide()===2; }  // Slate sees their pieces at the bottom
+let lastFlip = false;
+function turnBoard(){
+  const f = boardFlipped();
+  if (f === lastFlip) return;
+  lastFlip = f;
+  boardEl.classList.remove('turning'); void boardEl.offsetWidth; boardEl.classList.add('turning');
+}
+function humanTurn(){
+  return currentMode()==='hvh' || state.current===humanSide();
+}
+function formatClock(ms){
+  const s = Math.max(0, Math.ceil(ms/1000));
+  return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+}
+function renderClocks(){
+  document.body.classList.toggle('blitz', blitzToggle.checked);
+  if (!blitzToggle.checked){ clocksEl.style.display = 'none'; return; }
+  clocksEl.style.display = 'flex';
+  clock1El.textContent = `P1 ${formatClock(timeLeft[1])}`;
+  clock2El.textContent = `P2 ${formatClock(timeLeft[2])}`;
+  clock1El.classList.toggle('active', state.current===1 && !roundOver);
+  clock2El.classList.toggle('active', state.current===2 && !roundOver);
+  clock1El.classList.toggle('low', timeLeft[1] <= 10000);
+  clock2El.classList.toggle('low', timeLeft[2] <= 10000);
+}
+function stopClock(){
+  if (clockTimer){ clearInterval(clockTimer); clockTimer = null; }
+}
+function startClock(){
+  stopClock();
+  if (!blitzToggle.checked) return;
+  lastTick = Date.now();
+  clockTimer = setInterval(()=>{
+    if (roundOver) { stopClock(); return; }
+    const now = Date.now();
+    const elapsed = now - lastTick;
+    lastTick = now;
+    timeLeft[state.current] -= elapsed;
+    if (timeLeft[state.current] <= 0){
+      timeLeft[state.current] = 0;
+      renderClocks();
+      finishRound(opponent(state.current), "time out");
+      return;
+    }
+    renderClocks();
+  }, 100);
+}
+function newRound(){
+  state = { pieces: initialPieces(), current: 1, noCaptureStreak: 0, history: [] };
+  selectedPid = null; highlighted = {};
+  roundOver = false; aiJob++;
+  sideSelect.parentElement.style.display = currentMode()==='hva' ? '' : 'none';
+  turnBoard();
+  renderStats();
+  timeLeft = {1:30000, 2:30000};
+  renderClocks();
+  render();
+  setStatus(humanTurn() ? "your move." : "thinking...");
+  startClock();
+  if (!humanTurn()) setTimeout(aiMove, 300);
+}
+function isDraw(){
+  if (state.noCaptureStreak >= 20) return "20 plies without a capture";
+  const key = positionKey(state.pieces, state.current);
+  const count = state.history.filter(k=>k===key).length;
+  if (count >= 3) return "position repeated 3 times";
+  return null;
+}
+function setStatus(text){
+  const who = state.current===1 ? "Player 1 (gold)" : "Player 2 (slate)";
+  statusEl.textContent = `${who} to move — ${text}`;
+  scoreEl.textContent = `Score — Player 1: ${score[1]}   Player 2: ${score[2]}`;
+}
+function finishRound(winner, reason){
+  if (roundOver) return;
+  roundOver = true;
+  stopClock();
+  render();
+  renderClocks();
+  stats.gamesPlayed++;
+  if (winner){
+    score[winner]++;
+    if (winner===1) stats.p1Wins++; else stats.p2Wins++;
+    const who = winner===1 ? "Player 1" : "Player 2";
+    statusEl.textContent = `${who} wins! (${reason})`;
+  } else {
+    stats.draws++;
+    statusEl.textContent = `Draw (${reason})`;
+  }
+  if (currentMode()==='hva'){                      // only games against the computer count
+    const v = stats.vs[diffSelect.value];
+    if (!winner) v.d++; else if (winner===humanSide()) v.w++; else v.l++;
+  }
+  saveStats();
+  renderStats();
+  scoreEl.textContent = `Score — Player 1: ${score[1]}   Player 2: ${score[2]}`;
+}
+function doMove(move){
+  applyMove(state.pieces, move);
+  state.noCaptureStreak = move.captures.length ? 0 : state.noCaptureStreak+1;
+  state.current = opponent(state.current);
+  state.history.push(positionKey(state.pieces, state.current));
+  renderClocks();
+  const w = winnerOf(state.pieces);
+  if (w){ finishRound(w, "all captured"); return; }
+  const dr = isDraw();
+  if (dr){ finishRound(null, dr); return; }
+  const nextMoves = legalMoves(state.pieces, state.current);
+  if (nextMoves.length===0){ finishRound(opponent(state.current), "no legal moves"); return; }
+  render();
+  setStatus(humanTurn() ? "your move." : "thinking...");
+  if (!humanTurn()) setTimeout(aiMove, 250);
+}
+/* AI runs in a Web Worker built from the same engine script, so the page never freezes
+   and the Blitz clock keeps ticking (and charging) while the computer thinks. */
+let worker = null, aiJob = 0, noWorker = false;
+function getWorker(){
+  if (worker || noWorker) return worker;
+  try {
+    const src = document.getElementById('engine').textContent +
+      '\nonmessage=e=>{const d=e.data;postMessage({id:d.id,move:chooseMove(d.pieces,d.player,d.depth,d.blunder,d.streak,d.history,d.time)});};';
+    worker = new Worker(URL.createObjectURL(new Blob([src], {type:'text/javascript'})));
+    worker.onmessage = e => { if (e.data.id===aiJob && !roundOver) doMove(e.data.move); };
+    worker.onerror = () => { worker = null; noWorker = true; if (!roundOver && !humanTurn()) aiMove(); };
+  } catch (e) { worker = null; noWorker = true; }
+  return worker;
+}
+function aiMove(){
+  if (roundOver) return;
+  const cfg = DIFFICULTIES[diffSelect.value], job = ++aiJob;
+  const a = [state.pieces, state.current, cfg.depth, cfg.blunder, state.noCaptureStreak, state.history,
+    blitzToggle.checked ? Math.min(cfg.time||0, timeLeft[state.current]/25) : (cfg.time||0)];
+  const w = getWorker();
+  if (w) w.postMessage({id:job, pieces:a[0], player:a[1], depth:a[2], blunder:a[3], streak:a[4], history:a[5], time:a[6]});
+  else setTimeout(()=>{ if (job===aiJob && !roundOver) doMove(chooseMove(...a)); }, 30);
+}
+function onSquareClick(r,c){
+  if (roundOver || !humanTurn()) return;
+  const key = r+','+c;
+  if (highlighted[key]){
+    const move = highlighted[key];
+    selectedPid = null; highlighted = {};
+    doMove(move);
+    return;
+  }
+  const occ = occMap(state.pieces);
+  const pid = occ[key];
+  selectedPid = null; highlighted = {}; capturablePids = [];
+  const allMoves = legalMoves(state.pieces, state.current);
+  const mandatoryCapture = allMoves.length>0 && allMoves[0].captures.length>0;
+  if (mandatoryCapture) capturablePids = [...new Set(allMoves.map(m=>m.pid))];
+  if (pid!==undefined && state.pieces[pid].player===state.current){
+    selectedPid = pid;
+    const myMoves = allMoves.filter(m=>m.pid===pid);
+    for (const m of myMoves){
+      const [er,ec] = m.path[m.path.length-1];
+      highlighted[er+','+ec] = m;
+    }
+    if (myMoves.length===0) setStatus("that piece has no legal move — capture is mandatory elsewhere.");
+    else setStatus("your move.");
+  } else {
+    setStatus(humanTurn() ? "your move." : "thinking...");
+  }
+  render();
+}
+function render(){
+  boardEl.innerHTML = '';
+  const occ = occMap(state.pieces);
+  const flip = boardFlipped();
+  for (let i=0; i<SIZE; i++){
+    for (let j=0; j<SIZE; j++){
+      const r = flip ? i : SIZE-1-i, c = flip ? SIZE-1-j : j;
+      const sq = document.createElement('div');
+      const dark = (r+c)%2===0;
+      sq.className = 'sq ' + (dark ? 'dark' : 'light');
+      sq.dataset.rc = r+','+c;
+      if (selectedPid!==null && state.pieces[selectedPid] && state.pieces[selectedPid].r===r && state.pieces[selectedPid].c===c){
+        sq.classList.add('selected');
+      }
+      if (j===0){
+        const rowLbl = document.createElement('span');
+        rowLbl.className='coord row'; rowLbl.textContent = r+1;
+        sq.appendChild(rowLbl);
+      }
+      if (i===SIZE-1){
+        const colLbl = document.createElement('span');
+        colLbl.className='coord col'; colLbl.textContent = colLetter(c);
+        sq.appendChild(colLbl);
+      }
+      const pid = occ[r+','+c];
+      if (pid!==undefined){
+        const p = state.pieces[pid];
+        const pieceEl = document.createElement('div');
+        pieceEl.className = 'piece p'+p.player + (p.king ? ' king' : '') + (capturablePids.includes(pid) ? ' can-capture-hint' : '');
+        sq.appendChild(pieceEl);
+      } else if (highlighted[r+','+c]){
+        const dot = document.createElement('div');
+        dot.className = 'dot';
+        sq.appendChild(dot);
+      }
+      sq.addEventListener('click', ()=>onSquareClick(r,c));
+      boardEl.appendChild(sq);
+    }
+  }
+}
+
+document.getElementById('newRoundBtn').addEventListener('click', ()=>newRound());
+for (const r of modeRadios) r.addEventListener('change', ()=>newRound());
+diffSelect.addEventListener('change', ()=>newRound());   // a new level starts a fresh round, so each record stays honest
+blitzToggle.addEventListener('change', ()=>newRound());
+sideSelect.addEventListener('change', ()=>newRound());
+document.getElementById('resetStatsBtn').addEventListener('click', ()=>{
+  stats = emptyStats();
+  saveStats();
+  renderStats();
+});
+
+loadStats();
+renderStats();
+newRound();
+</script>
+<script>
+"use strict";
+/* ---------- Sound & motion ---------- */
+const FX = (() => {
+  let ac = null, muted = false;
+  try { muted = localStorage.getItem('fh_muted') === '1'; } catch (e) {}
+  const calm = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const A = () => {
+    if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } }
+    if (ac.state === 'suspended') ac.resume();
+    return ac;
+  };
+  const tone = (f, t, d, type = 'sine', v = .2, f2) => {
+    const a = A(); if (!a || muted) return;
+    const o = a.createOscillator(), g = a.createGain(), s = a.currentTime + t;
+    o.type = type; o.frequency.setValueAtTime(f, s);
+    if (f2) o.frequency.exponentialRampToValueAtTime(f2, s + d);
+    g.gain.setValueAtTime(.0001, s); g.gain.exponentialRampToValueAtTime(v, s + .01); g.gain.exponentialRampToValueAtTime(.0001, s + d);
+    o.connect(g).connect(a.destination); o.start(s); o.stop(s + d + .02);
+  };
+  const hit = (t, d, v, f) => {              // short filtered-noise "wood tap"
+    const a = A(); if (!a || muted) return;
+    const n = Math.floor(a.sampleRate * d), b = a.createBuffer(1, n, a.sampleRate), x = b.getChannelData(0);
+    for (let i = 0; i < n; i++) x[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const s = a.createBufferSource(), lp = a.createBiquadFilter(), g = a.createGain();
+    s.buffer = b; lp.type = 'lowpass'; lp.frequency.value = f; g.gain.value = v;
+    s.connect(lp).connect(g).connect(a.destination); s.start(a.currentTime + t);
+  };
+  const buzz = p => { try { if (!muted && navigator.vibrate) navigator.vibrate(p); } catch (e) {} };
+  const note = n => { if (self.log) self.log.push(n); };
+  const self = {
+    log: null, calm,
+    get muted() { return muted; },
+    setMuted(m) { muted = m; try { localStorage.setItem('fh_muted', m ? '1' : '0'); } catch (e) {} },
+    unlock() { A(); },
+    select() { note('select'); tone(700, 0, .05, 'triangle', .12); },
+    nope() { note('nope'); tone(190, 0, .13, 'sawtooth', .08, 140); buzz(25); },
+    move() { note('move'); hit(0, .05, .4, 1100); tone(170, 0, .09, 'sine', .25, 110); buzz(10); },
+    capture(n) { note('capture'); for (let i = 0; i < n; i++) { hit(i * .13, .09, .5, 2600); tone(150, i * .13, .14, 'square', .1, 70); } buzz(35); },
+    king() { note('king'); [523, 659, 784, 1047].forEach((f, i) => tone(f, .08 + i * .08, .22, 'triangle', .16)); },
+    win() { note('win'); [523, 659, 784, 1047].forEach((f, i) => tone(f, i * .13, .35, 'triangle', .2)); buzz([40, 50, 40]); },
+    lose() { note('lose'); [392, 330, 262, 196].forEach((f, i) => tone(f, i * .16, .4, 'sine', .2)); },
+    draw() { note('draw'); tone(440, 0, .3, 'sine', .15); tone(440, .25, .3, 'sine', .15); },
+    start() { note('start'); tone(392, 0, .12, 'triangle', .12); tone(587, .1, .18, 'triangle', .12); },
+    tick() { note('tick'); tone(1100, 0, .03, 'square', .06); },
+  };
+  return self;
+})();
+
+const STEP = FX.calm ? 0 : 190;                    // ms per square a piece slides
+let lastMove = null;
+const sqAt = (r, c) => boardEl.querySelector('[data-rc="' + r + ',' + c + '"]');
+function markLast() {
+  if (!lastMove) return;
+  for (const [r, c] of [lastMove.from, lastMove.to]) { const q = sqAt(r, c); if (q) q.classList.add('last'); }
+}
+function slide(path, dur) {                        // glide the piece along its whole path (chain jumps included)
+  if (!dur) return;
+  const end = path[path.length - 1], q = sqAt(end[0], end[1]), el = q && q.querySelector('.piece');
+  if (!el || !el.animate) return;
+  const R = path.map(([r, c]) => { const s = sqAt(r, c); return s && s.getBoundingClientRect(); });
+  if (R.some(x => !x)) return;
+  const L = R[R.length - 1];
+  el.style.zIndex = 4;
+  el.animate(R.map(x => ({ transform: 'translate(' + (x.left - L.left) + 'px,' + (x.top - L.top) + 'px)' })),
+             { duration: dur, easing: 'ease-in-out' }).onfinish = () => { el.style.zIndex = ''; };
+}
+function ghosts(list) {                            // captured pieces shrink away as the capturer passes
+  if (!STEP) return;
+  list.forEach((g, i) => {
+    const q = sqAt(g.r, g.c); if (!q || !q.animate) return;
+    const el = document.createElement('div');
+    el.className = 'piece p' + g.player + (g.king ? ' king' : '');
+    q.appendChild(el);
+    el.animate([{ transform: 'scale(1)', opacity: 1 }, { transform: 'scale(1.2)', opacity: .9, offset: .25 }, { transform: 'scale(.15)', opacity: 0 }],
+               { duration: 380, delay: STEP * (i + .5), fill: 'both', easing: 'ease-in' }).onfinish = () => el.remove();
+  });
+}
+function pop(to, delay) {                          // crown pop when a piece becomes a king
+  const q = sqAt(to[0], to[1]), el = q && q.querySelector('.piece');
+  if (el && el.animate) el.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.35)' }, { transform: 'scale(1)' }], { duration: 480, delay, easing: 'ease-out' });
+}
+function dropIn() {
+  if (!STEP) return;
+  boardEl.querySelectorAll('.piece').forEach((el, i) => el.animate && el.animate(
+    [{ transform: 'scale(.2)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }], { duration: 320, delay: i * 45, fill: 'backwards', easing: 'ease-out' }));
+}
+function shake() {
+  if (STEP && boardEl.animate) boardEl.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(-8px)' }, { transform: 'translateX(8px)' }, { transform: 'translateX(-5px)' }, { transform: 'translateX(0)' }], { duration: 380 });
+}
+function confetti() {
+  if (!STEP) return;
+  const cols = ['#e9c96b', '#ffe9a0', '#8aa0ff', '#5f8a43', '#f3ead6'];
+  for (let i = 0; i < 36; i++) {
+    const d = document.createElement('i');
+    d.style.cssText = 'position:fixed;top:-10px;left:' + Math.random() * 100 + 'vw;width:8px;height:12px;border-radius:2px;pointer-events:none;z-index:50;background:' + cols[i % 5];
+    document.body.appendChild(d);
+    if (!d.animate) { d.remove(); continue; }
+    d.animate([{ transform: 'translate(0,0) rotate(0)', opacity: 1 },
+               { transform: 'translate(' + (Math.random() * 120 - 60) + 'px,' + (window.innerHeight + 20) + 'px) rotate(' + Math.random() * 720 + 'deg)', opacity: .9 }],
+              { duration: 1400 + Math.random() * 1200, delay: Math.random() * 300, easing: 'cubic-bezier(.2,.6,.4,1)' }).onfinish = () => d.remove();
+  }
+}
+
+/* wrap the game functions so sound and motion follow every move, yours or the computer's */
+const _render = render;
+render = function () { _render(); markLast(); };
+
+const _doMove = doMove;
+doMove = function (move) {
+  const p = state.pieces[move.pid], from = move.path[0], to = move.path[move.path.length - 1];
+  const gone = move.captures.map(id => Object.assign({}, state.pieces[id]));
+  const crown = !p.king && to[0] === promoteRow(p.player);
+  const dur = STEP * (move.path.length - 1);
+  lastMove = { from, to };
+  _doMove(move);
+  slide(move.path, dur); ghosts(gone);
+  if (crown) pop(to, dur);
+  setTimeout(() => { move.captures.length ? FX.capture(move.captures.length) : FX.move(); if (crown) FX.king(); }, Math.max(0, dur - 30));
+};
+
+const _finishRound = finishRound;
+finishRound = function (winner, reason) {
+  const was = roundOver;
+  _finishRound(winner, reason);
+  if (was || !roundOver) return;
+  const vsCpu = currentMode() === 'hva', lost = vsCpu && winner && winner !== humanSide();
+  setTimeout(() => {
+    if (!winner) FX.draw(); else if (lost) { FX.lose(); shake(); } else { FX.win(); confetti(); }
+  }, reason === 'time out' ? 0 : 600);
+};
+
+const _onSquareClick = onSquareClick;
+onSquareClick = function (r, c) {
+  const before = selectedPid;
+  _onSquareClick(r, c);
+  if (selectedPid !== null && selectedPid !== before) FX.select();
+  else if (/that piece/.test(statusEl.textContent)) FX.nope();
+};
+
+const _newRound = newRound;
+newRound = function () { lastMove = null; _newRound(); dropIn(); FX.start(); };
+
+let lastSec = -1;
+const _renderClocks = renderClocks;
+renderClocks = function () {                       // last-5-seconds tick on your Blitz clock
+  _renderClocks();
+  if (!blitzToggle.checked || roundOver || !humanTurn()) return;
+  const ms = timeLeft[state.current], sec = Math.ceil(ms / 1000);
+  if (ms <= 5000 && sec !== lastSec) { lastSec = sec; FX.tick(); } else if (ms > 5000) lastSec = -1;
+};
+
+const muteBtn = document.getElementById('muteBtn');
+const paintMute = () => { muteBtn.innerHTML = FX.muted ? '&#128263;' : '&#128266;'; };
+muteBtn.addEventListener('click', () => { FX.setMuted(!FX.muted); paintMute(); FX.select(); });
+paintMute();
+addEventListener('pointerdown', () => FX.unlock(), { once: true });
+dropIn();
+</script>
+<script>
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
