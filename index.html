@@ -13,8 +13,8 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" href="icon-192.png">
 <style>
-  :root{--gold:#e9c96b;--cream:#f3ead6;--muted:#8b8b8b;--line:#3a3a3a;--pill:#222;--chrome:230px}
-  body.blitz{--chrome:268px}
+  :root{--gold:#e9c96b;--cream:#f3ead6;--muted:#8b8b8b;--line:#3a3a3a;--pill:#222;--chrome:272px}
+  body.blitz{--chrome:310px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0}
   body{min-height:100vh;display:flex;flex-direction:column;align-items:center;gap:8px;touch-action:manipulation;padding:max(8px,env(safe-area-inset-top)) 12px max(8px,env(safe-area-inset-bottom));color:var(--cream);font:15px/1.4 Georgia,"Times New Roman",serif;background:radial-gradient(1000px 600px at 50% -5%,#2b2b2b,#0f0f0f 70%) fixed}
@@ -57,7 +57,7 @@
   .icon{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:var(--pill);color:var(--gold);padding:0;font-size:.9rem;display:flex;align-items:center;justify-content:center} .help{position:relative}
   .help summary{list-style:none;width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:var(--pill);display:flex;align-items:center;justify-content:center;color:var(--gold);cursor:pointer;font:600 .95rem system-ui,sans-serif}
   .help summary::-webkit-details-marker{display:none}
-  .help .card{position:absolute;right:0;top:40px;width:min(82vw,300px);padding:12px;border-radius:12px;background:#1b1b1b;border:1px solid var(--line);box-shadow:0 12px 30px #000c;font:.78rem/1.45 system-ui,sans-serif;color:#bbb;z-index:5;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+  .help .card{position:fixed;left:50%;transform:translateX(-50%);top:calc(58px + env(safe-area-inset-top,0px));width:min(92vw,360px);max-height:calc(100vh - 90px);overflow:auto;padding:12px;border-radius:12px;background:#1b1b1b;border:1px solid var(--line);box-shadow:0 12px 30px #000c;font:.78rem/1.45 system-ui,sans-serif;color:#bbb;z-index:30;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
   #score{display:none}
   .top{display:flex;align-items:center;justify-content:space-between;gap:12px;width:min(94vw,520px)}
   #stats{position:relative;display:flex;justify-content:center;gap:4px;width:min(94vw,520px);padding-top:8px;border-top:1px solid #333;font:.8rem system-ui,sans-serif}
@@ -73,6 +73,16 @@
   .clock.active{border-color:var(--gold);color:var(--gold)} .clock.low{color:#ff6b5e;border-color:#ff6b5e}
   .sq.last::before{content:"";position:absolute;inset:0;background:#f6d36540;pointer-events:none}
   .sq.selected .piece{animation:lift .16s ease-out forwards} @keyframes lift{to{transform:scale(1.1)}}
+  .tools{display:flex;gap:8px;justify-content:center}
+  .tool{font:600 .8rem system-ui,sans-serif;color:#bdbdbd;background:var(--pill);border:1px solid var(--line);border-radius:999px;padding:7px 14px;white-space:nowrap}
+  .tool:disabled{opacity:.35} .tool.sure{border-color:#e0533f;color:#ff8f80} .tool b{color:var(--gold)}
+  #movesPanel{position:fixed;left:50%;bottom:calc(10px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(94vw,520px);padding:10px 12px;border-radius:14px;background:#1b1b1b;border:1px solid var(--line);box-shadow:0 14px 40px #000d;z-index:20;display:none;font:.85rem system-ui,sans-serif;color:#ddd}
+  #movesPanel.open{display:block}
+  .mhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+  .mhead button{background:none;border:0;color:#aaa;font-size:1.4rem;line-height:1;padding:0 4px}
+  #movesBody{max-height:32vh;overflow:auto}
+  .mv{display:grid;grid-template-columns:2.2em 1fr 1fr;gap:6px;padding:3px 4px;border-radius:6px;font-variant-numeric:tabular-nums}
+  #movesBody .mv:nth-child(even){background:#ffffff0a} .mv.hd{color:var(--gold);font-weight:600} .mv .n{color:#777}
 </style>
 </head>
 <body>
@@ -103,6 +113,16 @@
     <div class="clock" id="clock2">P2 0:30</div>
   </div>
   <div class="board-wrap"><div class="board" id="board"></div></div>
+  <div class="tools">
+    <button class="tool" id="undoBtn">&#8630; Undo</button>
+    <button class="tool" id="movesBtn">&#9776; Moves <b id="moveCount">0</b></button>
+    <button class="tool" id="resignBtn">&#9873; Resign</button>
+  </div>
+  <div id="movesPanel">
+    <div class="mhead"><b>Move list</b><button id="movesClose" aria-label="Close">&times;</button></div>
+    <div class="mv hd"><span></span><span>Gold</span><span>Slate</span></div>
+    <div id="movesBody"></div>
+  </div>
   <div class="score" id="score"></div>
   <div class="score" id="stats"></div>
 <script id="engine">
@@ -361,7 +381,7 @@ const clocksEl = document.getElementById('clocks');
 const clock1El = document.getElementById('clock1');
 const clock2El = document.getElementById('clock2');
 
-let state, selectedPid = null, highlighted = {}, score = {1:0,2:0}, capturablePids = [];
+let state, selectedPid = null, highlighted = {}, score = {1:0,2:0}, capturablePids = [], usedUndo = false;
 let clockTimer = null, timeLeft = {1:30000, 2:30000}, lastTick = 0, roundOver = false;
 
 const STATS_KEY = 'checkers7_stats_v1';
@@ -488,7 +508,7 @@ function finishRound(winner, reason){
     stats.draws++;
     statusEl.textContent = `Draw (${reason})`;
   }
-  if (currentMode()==='hva'){                      // only games against the computer count
+  if (currentMode()==='hva' && !usedUndo){                      // only games against the computer count
     const v = stats.vs[diffSelect.value];
     if (!winner) v.d++; else if (winner===humanSide()) v.w++; else v.l++;
   }
@@ -778,6 +798,82 @@ muteBtn.addEventListener('click', () => { FX.setMuted(!FX.muted); paintMute(); F
 paintMute();
 addEventListener('pointerdown', () => FX.unlock(), { once: true });
 dropIn();
+</script>
+<script>
+"use strict";
+/* ---------- Undo, resign, move list ---------- */
+const undoBtn = document.getElementById('undoBtn'), movesBtn = document.getElementById('movesBtn'),
+      resignBtn = document.getElementById('resignBtn'), movesPanel = document.getElementById('movesPanel'),
+      movesBody = document.getElementById('movesBody'), moveCount = document.getElementById('moveCount');
+let snaps = [], moveLog = [], sureTimer = 0;
+const sqName = ([r, c]) => 'ABCDEFG'[c] + (r + 1);
+const copy = o => JSON.parse(JSON.stringify(o));
+
+function canUndo() {                               // not in Blitz; vs computer you need one of your own moves to take back
+  if (roundOver || blitzToggle.checked || !snaps.length) return false;
+  return currentMode() === 'hvh' || snaps.some(s => s.current === humanSide());
+}
+function renderTools() {
+  undoBtn.disabled = !canUndo();
+  resignBtn.disabled = roundOver;
+  moveCount.textContent = moveLog.length;
+  let h = '';
+  for (let i = 0; i < moveLog.length; i += 2)
+    h += '<div class="mv"><span class="n">' + (i / 2 + 1) + '</span><span>' + moveLog[i] + '</span><span>' + (moveLog[i + 1] || '') + '</span></div>';
+  movesBody.innerHTML = h || '<div class="mv"><span></span><span>No moves yet</span><span></span></div>';
+  movesBody.scrollTop = movesBody.scrollHeight;
+}
+function undo() {
+  if (!canUndo()) return;
+  aiJob++;                                         // drop any computer move still being worked out
+  let s;
+  do { s = snaps.pop(); moveLog.pop(); } while (currentMode() === 'hva' && s.current !== humanSide() && snaps.length);
+  state.pieces = s.pieces; state.current = s.current; state.noCaptureStreak = s.noCaptureStreak; state.history = s.history;
+  selectedPid = null; highlighted = {}; lastMove = s.last; usedUndo = true;
+  render(); setStatus(humanTurn() ? 'your move.' : 'thinking...'); renderTools(); FX.select();
+}
+function resetResign() { clearTimeout(sureTimer); resignBtn.classList.remove('sure'); resignBtn.innerHTML = '&#9873; Resign'; }
+
+const _doMove3 = doMove;
+doMove = function (move) {
+  snaps.push({ pieces: copy(state.pieces), current: state.current, noCaptureStreak: state.noCaptureStreak, history: state.history.slice(), last: lastMove });
+  const p = state.pieces[move.pid], crown = !p.king && move.path[move.path.length - 1][0] === promoteRow(p.player);
+  moveLog.push(move.path.map(sqName).join(move.captures.length ? '\u00d7' : '\u2013') + (crown ? ' \u265b' : ''));
+  _doMove3(move);
+  renderTools();
+};
+const _aiMove3 = aiMove;
+aiMove = function () { if (roundOver || humanTurn()) return; _aiMove3(); };   // a timer left over from before an undo does nothing
+const _newRound3 = newRound;
+newRound = function () {
+  snaps.length = 0; moveLog.length = 0; usedUndo = false; resetResign(); movesPanel.classList.remove('open');
+  _newRound3(); renderTools();
+};
+const _finish3 = finishRound;
+finishRound = function (winner, reason) {
+  const was = roundOver;
+  _finish3(winner, reason);
+  if (!was && usedUndo && currentMode() === 'hva') statusEl.textContent += ' Not counted: undo used.';
+  renderTools();
+};
+
+undoBtn.addEventListener('click', undo);
+movesBtn.addEventListener('click', () => { movesPanel.classList.toggle('open'); renderTools(); });
+document.getElementById('movesClose').addEventListener('click', () => movesPanel.classList.remove('open'));
+resignBtn.addEventListener('click', () => {        // tap twice: the first tap only asks "sure?"
+  if (roundOver) return;
+  if (!resignBtn.classList.contains('sure')) {
+    resignBtn.classList.add('sure'); resignBtn.textContent = 'Tap again to resign';
+    clearTimeout(sureTimer); sureTimer = setTimeout(resetResign, 3000); return;
+  }
+  resetResign();
+  finishRound(opponent(currentMode() === 'hva' ? humanSide() : state.current), 'resigned');
+});
+renderTools();
+document.addEventListener('click', e => {      // tap anywhere outside the help card to close it
+  const h = document.querySelector('.help');
+  if (h && h.open && !h.contains(e.target)) h.open = false;
+});
 </script>
 <script>
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js');
